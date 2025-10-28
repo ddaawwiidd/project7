@@ -77,6 +77,8 @@
         headingLabel.textContent = `Heading: ${currentHeading}°`;
         // heading change alone doesn't require re-render overlay,
         // overlay is location-based for now, so we skip calling renderCameraOverlay() here
+        // update overlay visibility based on new heading
+        renderCameraOverlay();
       }
     }
   }
@@ -211,34 +213,51 @@
     return R * c;
   }
 
+  function isHeadingClose(a, b, toleranceDeg) {
+  if (a == null || b == null) return false;
+  let diff = Math.abs(a - b);
+  if (diff > 180) diff = 360 - diff; // wraparound 350° vs 10°
+  return diff <= toleranceDeg;
+  }
+
+
   // ===== Camera overlay (contextual nearby notes only) =====
   function renderCameraOverlay() {
     if (!cameraNotesOverlay) return;
     cameraNotesOverlay.innerHTML = '';
-
-    // if we don't know where we are, don't show stale notes
+  
+    // if we don't know where we are, don't show anything
     if (currentLat == null || currentLon == null) {
       return;
     }
-
-    const NEAR_RADIUS_M = 10; // meters
-
-    const nearbyNotes = notes
+  
+    const NEAR_RADIUS_M = 10; // tighter radius
+    const HEADING_TOLERANCE_DEG = 15; // how precisely you need to face the same direction
+  
+    const visibleNotes = notes
       .filter(n => {
         if (n.lat == null || n.lon == null) return false;
+  
+        // check distance
         const dist = distanceMeters(currentLat, currentLon, n.lat, n.lon);
-        return dist <= NEAR_RADIUS_M;
+        const closeEnough = dist <= NEAR_RADIUS_M;
+  
+        // check facing direction
+        const lookingSameWay = isHeadingClose(currentHeading, n.heading, HEADING_TOLERANCE_DEG);
+  
+        return closeEnough && lookingSameWay;
       })
       .sort((a,b)=>b.createdAt-a.createdAt)
       .slice(0,2);
-
-    nearbyNotes.forEach((n) => {
+  
+    visibleNotes.forEach((n) => {
       const chip = document.createElement('div');
       chip.className = 'note-chip';
       chip.textContent = n.text;
       cameraNotesOverlay.appendChild(chip);
     });
   }
+
 
   // ===== Map (Leaflet) =====
   function initMap() {
@@ -414,4 +433,5 @@
       .replace(/>/g, '&gt;');
   }
 })();
+
 
