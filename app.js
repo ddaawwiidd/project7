@@ -221,7 +221,7 @@
       return;
     }
 
-    const NEAR_RADIUS_M = 30; // meters
+    const NEAR_RADIUS_M = 10; // meters
 
     const nearbyNotes = notes
       .filter(n => {
@@ -414,3 +414,4 @@
       .replace(/>/g, '&gt;');
   }
 })();
+
