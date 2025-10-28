@@ -320,13 +320,14 @@
       btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-target');
         switchView(targetId);
-
-        tabButtons.forEach((b) => b.classList.remove('active-tab'));
-        btn.classList.add('active-tab');
-
+  
+        // update visual active state
+        tabButtons.forEach((b) => b.classList.remove('active-pill'));
+        btn.classList.add('active-pill');
+  
         if (targetId === 'mapView') {
           initMap();
-          // fix Leaflet sizing after hidden tab becomes visible
+          // resize Leaflet after view becomes visible
           setTimeout(() => {
             if (map) {
               map.invalidateSize();
@@ -337,6 +338,7 @@
       });
     });
   }
+
 
   function switchView(targetId) {
     [cameraView, mapView, notesView].forEach((v) => {
@@ -433,6 +435,7 @@
       .replace(/>/g, '&gt;');
   }
 })();
+
 
 
 
