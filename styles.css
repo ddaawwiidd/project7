@@ -274,6 +274,36 @@ body {
   gap: 10px;
 }
 
+.note-main-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.note-text {
+  flex: 1;
+  font-size: 0.8rem;
+  line-height: 1.3rem;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+.delete-btn {
+  background: transparent;
+  border: 1px solid rgba(255,0,0,0.4);
+  color: #ff6b6b;
+  font-size: 0.7rem;
+  line-height: 1rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.delete-btn:active {
+  opacity: 0.7;
+}
+
 /* ===== Modal ===== */
 .modal {
   position: fixed;
@@ -394,5 +424,6 @@ body {
   color: var(--text-main);
   font-weight: 600;
 }
+
 
 
