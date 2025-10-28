@@ -435,6 +435,43 @@ body {
   font-weight: 600;
 }
 
+/* Floating nav pill */
+.floating-nav {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--safe-bottom) + 16px);
+  z-index: var(--z-ui);
+  background: var(--panel-bg);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--panel-border);
+  border-radius: 9999px;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.nav-pill-btn {
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1rem;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.active-pill {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-main);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.8);
+}
+
+
+
 
 
 
