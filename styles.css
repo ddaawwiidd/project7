@@ -104,9 +104,10 @@ body {
   height: 100%;
   display: none;
   background: #000;
-  padding-bottom: calc(var(--tab-bar-height) + var(--safe-bottom));
   padding-top: var(--header-height);
+  /* no bottom padding - floating nav handles itself */
 }
+
 
 .active-view {
   display: block;
@@ -166,8 +167,8 @@ body {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(var(--tab-bar-height) + var(--safe-bottom) + 24px);
-  z-index: calc(var(--z-ui) + 1); /* one layer above the tab bar */
+  bottom: calc(var(--safe-bottom) + 80px); /* sits above floating-nav */
+  z-index: calc(var(--z-ui) + 1);
   pointer-events: auto;
 }
 
@@ -181,6 +182,7 @@ body {
   box-shadow: 0 8px 24px rgba(77, 123, 255, 0.5);
   font-size: 0.95rem;
 }
+
 
 /* ===== Map view ===== */
 #mapView {
@@ -395,46 +397,6 @@ body {
   padding: 8px 12px;
 }
 
-/* ===== Bottom tab bar ===== */
-.tab-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--tab-bar-height);
-  padding-bottom: var(--safe-bottom);
-  background: var(--panel-bg);
-  backdrop-filter: var(--blur);
-  border-top: 1px solid var(--panel-border);
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  z-index: var(--z-ui);
-}
-
-.tab-btn {
-  background: none;
-  border: none;
-  flex: 1;
-  color: var(--text-dim);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.7rem;
-  padding: 8px 4px 4px;
-}
-
-.tab-icon {
-  font-size: 1rem;
-  line-height: 1rem;
-}
-
-.active-tab {
-  color: var(--text-main);
-  font-weight: 600;
-}
-
 /* Floating nav pill */
 .floating-nav {
   position: fixed;
@@ -469,6 +431,7 @@ body {
   color: var(--text-main);
   box-shadow: 0 12px 24px rgba(0,0,0,0.8);
 }
+
 
 
 
