@@ -25,7 +25,7 @@
 
   const installBtn    = document.getElementById('installBtn');
 
-  // State
+  // ===== State =====
   let notes = loadNotes();
   let currentLat  = null;
   let currentLon  = null;
@@ -36,6 +36,7 @@
   // Map state
   let map = null;
   let markersLayer = null;
+  let userHasMovedMap = false;
 
   // ===== Init =====
   initCamera();
@@ -46,7 +47,6 @@
   initNoteFlow();
   initInstallPrompt();
   registerServiceWorker();
-
 
   // ===== Camera stream =====
   function initCamera() {
@@ -75,6 +75,8 @@
       if (typeof heading === 'number') {
         currentHeading = Math.round(heading);
         headingLabel.textContent = `Heading: ${currentHeading}°`;
+        // heading change alone doesn't require re-render overlay,
+        // overlay is location-based for now, so we skip calling renderCameraOverlay() here
       }
     }
   }
@@ -92,7 +94,10 @@
         currentLon = pos.coords.longitude;
         gpsLabel.textContent = `GPS: ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}`;
 
-        // If map already exists, maybe recenter once (light-touch heuristic)
+        // Update overlay based on new position (proximity logic)
+        renderCameraOverlay();
+
+        // If map already exists, maybe recenter once until user moves it
         if (map && !userHasMovedMap) {
           map.setView([currentLat, currentLon], 16);
         }
@@ -147,52 +152,103 @@
       return;
     }
 
+    // newest first
     notes
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
       .forEach((n) => {
         const card = document.createElement('div');
         card.className = 'note-card';
+
         const date = new Date(n.createdAt);
+
         card.innerHTML = `
-          <div>${escapeHTML(n.text)}</div>
+          <div class="note-main-row">
+            <div class="note-text">${escapeHTML(n.text)}</div>
+            <button class="delete-btn" data-id="${n.id}">Delete</button>
+          </div>
           <div class="meta">
             <span>${date.toLocaleString()}</span>
             <span>📍 ${n.lat.toFixed(5)}, ${n.lon.toFixed(5)}</span>
             <span>↗ ${n.heading ?? '--'}°</span>
           </div>
         `;
+
         notesList.appendChild(card);
       });
+
+    // hook up delete handlers
+    notesList.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', onDeleteNoteClick);
+    });
   }
 
+  function onDeleteNoteClick(e) {
+    const id = e.currentTarget.getAttribute('data-id');
+    if (!id) return;
+
+    // remove from notes array
+    notes = notes.filter(n => n.id !== id);
+    saveNotes();
+
+    // re-render everything that depends on notes
+    renderNotesList();
+    renderCameraOverlay();
+    renderMapMarkers();
+  }
+
+  // === distance helper (rough haversine in meters)
+  function distanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // meters
+    const toRad = deg => deg * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  // ===== Camera overlay (contextual nearby notes only) =====
   function renderCameraOverlay() {
     if (!cameraNotesOverlay) return;
     cameraNotesOverlay.innerHTML = '';
 
-    // naive: show last 2 notes as floating chips
-    const latest = notes.slice().sort((a,b)=>b.createdAt-a.createdAt).slice(0,2);
-    latest.forEach((n) => {
-        const chip = document.createElement('div');
-        chip.className = 'note-chip';
-        chip.textContent = n.text;
-        cameraNotesOverlay.appendChild(chip);
+    // if we don't know where we are, don't show stale notes
+    if (currentLat == null || currentLon == null) {
+      return;
+    }
+
+    const NEAR_RADIUS_M = 30; // meters
+
+    const nearbyNotes = notes
+      .filter(n => {
+        if (n.lat == null || n.lon == null) return false;
+        const dist = distanceMeters(currentLat, currentLon, n.lat, n.lon);
+        return dist <= NEAR_RADIUS_M;
+      })
+      .sort((a,b)=>b.createdAt-a.createdAt)
+      .slice(0,2);
+
+    nearbyNotes.forEach((n) => {
+      const chip = document.createElement('div');
+      chip.className = 'note-chip';
+      chip.textContent = n.text;
+      cameraNotesOverlay.appendChild(chip);
     });
   }
 
   // ===== Map (Leaflet) =====
-
-  // we track if user panned/zoomed manually, to avoid recenter spam
-  let userHasMovedMap = false;
-
   function initMap() {
     if (map) return; // already done
 
     const mapEl = document.getElementById('map');
     if (!mapEl) return;
 
-    // set initial view:
-    let startLat = (currentLat != null) ? currentLat : 41.387; // Barcelona-ish
+    // pick initial view
+    let startLat = (currentLat != null) ? currentLat : 41.387; // Barcelona fallback
     let startLon = (currentLon != null) ? currentLon : 2.170;
     let startZoom = (currentLat != null && currentLon != null) ? 16 : 13;
 
@@ -206,12 +262,12 @@
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // watch user pan/zoom
+    markersLayer = L.layerGroup().addTo(map);
+
+    // track manual movement so we don't keep recentering on user
     map.on('moveend', () => {
       userHasMovedMap = true;
     });
-
-    markersLayer = L.layerGroup().addTo(map);
 
     renderMapMarkers();
   }
@@ -250,10 +306,8 @@
         btn.classList.add('active-tab');
 
         if (targetId === 'mapView') {
-          // make sure map is initialized and sized
           initMap();
-
-          // Leaflet needs a size invalidate after being hidden
+          // fix Leaflet sizing after hidden tab becomes visible
           setTimeout(() => {
             if (map) {
               map.invalidateSize();
@@ -313,7 +367,12 @@
 
     notes.push(newNote);
     saveNotes();
-    renderAll();
+
+    // re-render dependent views
+    renderNotesList();
+    renderCameraOverlay();
+    renderMapMarkers();
+
     closeNoteModal();
   }
 
