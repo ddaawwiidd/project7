@@ -12,7 +12,6 @@
   --safe-bottom: env(safe-area-inset-bottom, 16px);
   --safe-top: env(safe-area-inset-top, 16px);
   --header-height: 56px;
-  --tab-bar-height: 68px;
   --z-video: 1;
   --z-overlay: 2;
   --z-ui: 3;
@@ -104,10 +103,8 @@ body {
   height: 100%;
   display: none;
   background: #000;
-  padding-top: var(--header-height);
-  /* no bottom padding - floating nav handles itself */
+  padding-top: var(--header-height); /* leave space for HUD bar */
 }
-
 
 .active-view {
   display: block;
@@ -132,10 +129,6 @@ body {
   position: absolute;
   inset: 0;
   z-index: var(--z-overlay);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 16px;
   pointer-events: none;
 }
 
@@ -161,8 +154,10 @@ body {
   color: var(--text-main);
   padding: 8px 10px;
   max-width: 80%;
+  box-shadow: 0 18px 30px rgba(0,0,0,0.8);
 }
 
+/* Floating "Add note here" button (FAB-ish) */
 .camera-actions {
   position: fixed;
   left: 50%;
@@ -183,26 +178,21 @@ body {
   font-size: 0.95rem;
 }
 
-
 /* ===== Map view ===== */
 #mapView {
   background: #000;
-  /* Leaflet map will sit inside it */
 }
 
 #map {
   position: absolute;
   left: 0;
   right: 0;
-  /* subtract header and bottom tab bar so it doesn't sit behind them */
   top: var(--header-height);
-  bottom: calc(var(--tab-bar-height) + var(--safe-bottom));
-  z-index: var(--z-video); /* below nav chrome */
+  bottom: 0;
+  z-index: var(--z-video);
 }
 
-/* Leaflet default tiles are light; we'll allow it for now.
-   We still restyle popup to match our HUD. */
-
+/* Dark-ish popup styling to match HUD */
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
   background: rgba(20,20,24,0.8);
@@ -230,13 +220,11 @@ body {
 }
 
 /* ===== Notes view ===== */
-/* Notes view layout: header fixed at top of view, list scrolls under it */
 #notesView {
   display: flex;
   flex-direction: column;
   background: #000;
   padding-top: var(--header-height);
-  /* no bottom padding based on tab bar anymore (we're changing nav) */
 }
 
 .notes-header {
@@ -259,10 +247,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 0; /* critical for flexbox scroll */
+  min-height: 0;
   background: #000;
 }
-
 
 .note-card {
   background: var(--panel-bg);
@@ -274,16 +261,6 @@ body {
   line-height: 1.3rem;
   color: var(--text-main);
   box-shadow: 0 30px 60px rgba(0,0,0,0.8);
-}
-
-.note-card .meta {
-  font-size: 0.7rem;
-  line-height: 1rem;
-  color: var(--text-dim);
-  margin-top: 6px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
 }
 
 .note-main-row {
@@ -301,6 +278,27 @@ body {
   word-break: break-word;
 }
 
+.note-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.share-btn {
+  background: transparent;
+  border: 1px solid rgba(77,123,255,0.5);
+  color: var(--accent);
+  font-size: 0.7rem;
+  line-height: 1rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.share-btn:active {
+  opacity: 0.7;
+}
+
 .delete-btn {
   background: transparent;
   border: 1px solid rgba(255,0,0,0.4);
@@ -309,11 +307,20 @@ body {
   line-height: 1rem;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
-  flex-shrink: 0;
 }
 
 .delete-btn:active {
   opacity: 0.7;
+}
+
+.note-card .meta {
+  font-size: 0.7rem;
+  line-height: 1rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 /* ===== Modal ===== */
@@ -397,7 +404,7 @@ body {
   padding: 8px 12px;
 }
 
-/* Floating nav pill */
+/* ===== Floating nav pill ===== */
 .floating-nav {
   position: fixed;
   left: 50%;
@@ -431,10 +438,3 @@ body {
   color: var(--text-main);
   box-shadow: 0 12px 24px rgba(0,0,0,0.8);
 }
-
-
-
-
-
-
-
