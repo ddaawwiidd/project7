@@ -13,7 +13,7 @@
   const gpsLabel      = document.getElementById('gpsLabel');
 
   const addNoteBtn    = document.getElementById('addNoteBtn');
-  const noteModal     = document.getElementById('noteModal');
+    const noteModal     = document.getElementById('noteModal');
   const noteTextInput = document.getElementById('noteTextInput');
   const modalLat      = document.getElementById('modalLat');
   const modalLon      = document.getElementById('modalLon');
@@ -24,6 +24,10 @@
   const tabButtons    = document.querySelectorAll('.nav-pill-btn');
 
   const installBtn    = document.getElementById('installBtn');
+
+  const cameraActions = document.querySelector('.camera-actions');
+
+
 
   // ===== State =====
   let notes = loadNotes();
@@ -524,12 +528,22 @@
   }
 
   function switchView(targetId) {
-    [cameraView, mapView, notesView].forEach((v) => {
-      if (!v) return;
-      v.classList.remove('active-view');
-      if (v.id === targetId) v.classList.add('active-view');
-    });
+  [cameraView, mapView, notesView].forEach((v) => {
+    if (!v) return;
+    v.classList.remove('active-view');
+    if (v.id === targetId) v.classList.add('active-view');
+  });
+
+  // Show FAB only on Camera tab
+  if (cameraActions) {
+    if (targetId === 'cameraView') {
+      cameraActions.classList.remove('hidden');
+    } else {
+      cameraActions.classList.add('hidden');
+    }
   }
+}
+
 
   // ===== Note creation flow =====
   function initNoteFlow() {
@@ -618,3 +632,4 @@
   }
 
 })();
+
