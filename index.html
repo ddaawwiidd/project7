@@ -42,13 +42,10 @@
       <section id="cameraView" class="view active-view">
         <video id="cameraStream" autoplay playsinline></video>
 
+        <!-- Overlay HUD -->
         <div class="camera-overlay">
           <div class="overlay-notes" id="cameraNotesOverlay">
             <!-- contextual chips injected here -->
-          </div>
-
-          <div class="camera-actions">
-            <button id="addNoteBtn" class="primary-btn">+ Note here</button>
           </div>
         </div>
       </section>
@@ -96,11 +93,16 @@
       </div>
     </div>
 
-     <!-- Floating nav pill -->
+    <!-- Floating nav pill -->
     <div class="floating-nav">
       <button class="nav-pill-btn active-pill" data-target="cameraView">📷 Camera</button>
       <button class="nav-pill-btn" data-target="mapView">🗺️ Map</button>
       <button class="nav-pill-btn" data-target="notesView">📝 Notes</button>
+    </div>
+
+    <!-- Floating "Add note" FAB -->
+    <div class="camera-actions">
+      <button id="addNoteBtn" class="primary-btn">+ Note here</button>
     </div>
 
   </div>
@@ -115,4 +117,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-
