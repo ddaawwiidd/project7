@@ -115,6 +115,11 @@
     );
   }
 
+  // cache of recently visible notes to prevent flicker
+  const visibleStability = new Map(); 
+  // Map<noteId, timestampLastQualifiedMs>
+
+
   // ===== Notes persistence =====
   function loadNotes() {
     try {
@@ -226,37 +231,65 @@
     if (!cameraNotesOverlay) return;
     cameraNotesOverlay.innerHTML = '';
   
-    // if we don't know where we are, don't show anything
     if (currentLat == null || currentLon == null) {
       return;
     }
   
-    const NEAR_RADIUS_M = 10; // tighter radius
-    const HEADING_TOLERANCE_DEG = 15; // how precisely you need to face the same direction
+    const NEAR_RADIUS_M = 10; // distance gate
+    const HEADING_TOLERANCE_DEG = 35; // was 15, bumping to 35 for stability
+    const STICKY_MS = 1000; // how long we "keep showing" after last qualified
   
-    const visibleNotes = notes
-      .filter(n => {
-        if (n.lat == null || n.lon == null) return false;
+    const now = Date.now();
   
-        // check distance
-        const dist = distanceMeters(currentLat, currentLon, n.lat, n.lon);
-        const closeEnough = dist <= NEAR_RADIUS_M;
+    // 1. figure out which notes qualify right now
+    const qualifyingNotes = [];
+    notes.forEach(n => {
+      if (n.lat == null || n.lon == null) return;
   
-        // check facing direction
-        const lookingSameWay = isHeadingClose(currentHeading, n.heading, HEADING_TOLERANCE_DEG);
+      // distance check
+      const dist = distanceMeters(currentLat, currentLon, n.lat, n.lon);
+      const closeEnough = dist <= NEAR_RADIUS_M;
   
-        return closeEnough && lookingSameWay;
-      })
-      .sort((a,b)=>b.createdAt-a.createdAt)
-      .slice(0,2);
+      // heading check
+      const lookingSameWay = isHeadingClose(currentHeading, n.heading, HEADING_TOLERANCE_DEG);
   
-    visibleNotes.forEach((n) => {
+      if (closeEnough && lookingSameWay) {
+        qualifyingNotes.push(n);
+  
+        // mark this note as "good at this moment"
+        visibleStability.set(n.id, now);
+      }
+    });
+  
+    // 2. also allow notes that WERE qualifying very recently (sticky effect)
+    const stickyNotes = notes.filter(n => {
+      const lastOk = visibleStability.get(n.id);
+      if (!lastOk) return false;
+      // keep it if it's still within STICKY_MS
+      return now - lastOk <= STICKY_MS;
+    });
+  
+    // merge + dedupe by id
+    const merged = [];
+    const seen = new Set();
+    [...qualifyingNotes, ...stickyNotes]
+      .sort((a,b)=>b.createdAt - a.createdAt)
+      .forEach(n => {
+        if (!seen.has(n.id)) {
+          seen.add(n.id);
+          merged.push(n);
+        }
+      });
+  
+    // only show top 2
+    merged.slice(0,2).forEach(n => {
       const chip = document.createElement('div');
       chip.className = 'note-chip';
       chip.textContent = n.text;
       cameraNotesOverlay.appendChild(chip);
     });
   }
+
 
 
   // ===== Map (Leaflet) =====
@@ -435,6 +468,7 @@
       .replace(/>/g, '&gt;');
   }
 })();
+
 
 
 
