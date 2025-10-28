@@ -5,9 +5,8 @@ const ASSETS = [
   './styles.css',
   './app.js',
   './manifest.webmanifest'
-  // icons will go here once added:
-  // './icon-192.png',
-  // './icon-512.png'
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -17,7 +16,6 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  // cleanup old caches if version bumps in future
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
@@ -34,7 +32,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
-  // App shell: try cache first, then network
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
