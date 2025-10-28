@@ -164,24 +164,22 @@ body {
 
 .camera-actions {
   position: fixed;
-  bottom: calc(var(--tab-bar-height) + var(--safe-bottom) + 12px);
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--tab-bar-height) + var(--safe-bottom) + 24px);
+  z-index: calc(var(--z-ui) + 1); /* one layer above the tab bar */
   pointer-events: auto;
-  z-index: var(--z-ui);
 }
 
 .primary-btn {
   background: var(--accent);
   color: #fff;
   font-weight: 600;
-  padding: 12px 24px;
+  padding: 14px 28px;
   border: none;
-  border-radius: 50px;
+  border-radius: 9999px;
   box-shadow: 0 8px 24px rgba(77, 123, 255, 0.5);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 /* ===== Map view ===== */
@@ -396,4 +394,5 @@ body {
   color: var(--text-main);
   font-weight: 600;
 }
+
 
