@@ -228,29 +228,39 @@ body {
 }
 
 /* ===== Notes view ===== */
+/* Notes view layout: header fixed at top of view, list scrolls under it */
+#notesView {
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  padding-top: var(--header-height);
+  /* no bottom padding based on tab bar anymore (we're changing nav) */
+}
+
 .notes-header {
-  padding: 16px;
+  flex-shrink: 0;
   background: #000;
   border-bottom: 1px solid var(--panel-border);
+  padding: 16px;
 }
 
 .notes-header h2 {
   font-size: 1rem;
   font-weight: 600;
+  color: var(--text-main);
 }
 
 .notes-list {
-  position: absolute;
-  top: 56px;
-  bottom: calc(var(--tab-bar-height) + var(--safe-bottom));
-  left: 0;
-  right: 0;
+  flex: 1 1 auto;
   overflow-y: auto;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0; /* critical for flexbox scroll */
+  background: #000;
 }
+
 
 .note-card {
   background: var(--panel-bg);
@@ -424,6 +434,7 @@ body {
   color: var(--text-main);
   font-weight: 600;
 }
+
 
 
 
