@@ -21,7 +21,7 @@
   const cancelNoteBtn = document.getElementById('cancelNoteBtn');
   const saveNoteBtn   = document.getElementById('saveNoteBtn');
 
-  const tabButtons    = document.querySelectorAll('.tab-btn');
+  const tabButtons    = document.querySelectorAll('.nav-pill-btn');
 
   const installBtn    = document.getElementById('installBtn');
 
@@ -433,5 +433,6 @@
       .replace(/>/g, '&gt;');
   }
 })();
+
 
 
