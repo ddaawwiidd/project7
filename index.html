@@ -96,21 +96,13 @@
       </div>
     </div>
 
-    <!-- Bottom nav -->
-    <nav class="tab-bar">
-      <button class="tab-btn active-tab" data-target="cameraView">
-        <span class="tab-icon">📷</span>
-        <span class="tab-label">Camera</span>
-      </button>
-      <button class="tab-btn" data-target="mapView">
-        <span class="tab-icon">🗺️</span>
-        <span class="tab-label">Map</span>
-      </button>
-      <button class="tab-btn" data-target="notesView">
-        <span class="tab-icon">📝</span>
-        <span class="tab-label">Notes</span>
-      </button>
-    </nav>
+     <!-- Floating nav pill -->
+    <div class="floating-nav">
+      <button class="nav-pill-btn active-pill" data-target="cameraView">📷 Camera</button>
+      <button class="nav-pill-btn" data-target="mapView">🗺️ Map</button>
+      <button class="nav-pill-btn" data-target="notesView">📝 Notes</button>
+    </div>
+
   </div>
 
   <!-- Leaflet JS -->
@@ -123,3 +115,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+
