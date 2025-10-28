@@ -1,5 +1,5 @@
 (function () {
-  // DOM refs
+  // ===== DOM refs =====
   const cameraView    = document.getElementById('cameraView');
   const mapView       = document.getElementById('mapView');
   const notesView     = document.getElementById('notesView');
@@ -31,12 +31,46 @@
   let currentLon  = null;
   let currentHeading = null;
 
-  let deferredPrompt = null; // for PWA install prompt
+  let deferredPrompt = null; // PWA install prompt
+
+  // Shared note state (someone opened via shared link)
+  let sharedNote = null;
 
   // Map state
   let map = null;
   let markersLayer = null;
   let userHasMovedMap = false;
+
+  // Live user marker on map
+  let youMarker = null;
+  let youHalo = null;
+
+  // Stability map to avoid flicker in overlay
+  const visibleStability = new Map(); // Map<noteId, lastQualifiedMs>
+
+  // ===== Shared note bootstrap from URL =====
+  (function loadSharedFromHash() {
+    const match = window.location.hash.match(/#share=([^&]+)/);
+    if (!match || !match[1]) return;
+
+    try {
+      const decoded = atob(match[1]);
+      const data = JSON.parse(decoded);
+
+      sharedNote = {
+        id: 'shared-' + (data.createdAt || Date.now()),
+        text: data.text,
+        lat: data.lat,
+        lon: data.lon,
+        heading: data.heading,
+        createdAt: data.createdAt || Date.now(),
+        _sharedRadius: data.radius || 10,
+        _sharedTolerance: data.tolerance || 35
+      };
+    } catch (err) {
+      console.warn('Failed to parse shared note from URL', err);
+    }
+  })();
 
   // ===== Init =====
   initCamera();
@@ -48,7 +82,7 @@
   initInstallPrompt();
   registerServiceWorker();
 
-  // ===== Camera stream =====
+  // ===== Camera (rear camera feed) =====
   function initCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       console.warn('Camera API not available');
@@ -65,7 +99,7 @@
       });
   }
 
-  // ===== Device heading / compass =====
+  // ===== Heading / compass =====
   function initHeading() {
     window.addEventListener('deviceorientationabsolute', handleOrientation, true);
     window.addEventListener('deviceorientation', handleOrientation, true);
@@ -75,15 +109,14 @@
       if (typeof heading === 'number') {
         currentHeading = Math.round(heading);
         headingLabel.textContent = `Heading: ${currentHeading}°`;
-        // heading change alone doesn't require re-render overlay,
-        // overlay is location-based for now, so we skip calling renderCameraOverlay() here
-        // update overlay visibility based on new heading
+
+        // re-check overlay visibility based on heading
         renderCameraOverlay();
       }
     }
   }
 
-  // ===== GPS =====
+  // ===== GPS / geolocation =====
   function initGPS() {
     if (!navigator.geolocation) {
       console.warn('Geolocation not supported.');
@@ -96,12 +129,43 @@
         currentLon = pos.coords.longitude;
         gpsLabel.textContent = `GPS: ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)}`;
 
-        // Update overlay based on new position (proximity logic)
+        // update overlay because position affects which notes qualify
         renderCameraOverlay();
 
-        // If map already exists, maybe recenter once until user moves it
-        if (map && !userHasMovedMap) {
-          map.setView([currentLat, currentLon], 16);
+        // If map already exists, keep user marker updated
+        if (map) {
+          const hereLatLng = [currentLat, currentLon];
+
+          // halo
+          if (!youHalo) {
+            youHalo = L.circle(hereLatLng, {
+              radius: 8, // meters, small visual halo
+              color: 'rgba(0,122,255,0.3)',
+              fillColor: 'rgba(0,122,255,0.3)',
+              fillOpacity: 0.5,
+              weight: 2
+            }).addTo(map);
+          } else {
+            youHalo.setLatLng(hereLatLng);
+          }
+
+          // solid dot
+          if (!youMarker) {
+            youMarker = L.circleMarker(hereLatLng, {
+              radius: 6,
+              color: 'rgba(0,122,255,1)',
+              fillColor: 'rgba(0,122,255,1)',
+              fillOpacity: 1,
+              weight: 2
+            }).addTo(map);
+          } else {
+            youMarker.setLatLng(hereLatLng);
+          }
+
+          // if user hasn't moved map manually yet, center on them
+          if (!userHasMovedMap) {
+            map.setView(hereLatLng, 16);
+          }
         }
       },
       (err) => {
@@ -115,12 +179,7 @@
     );
   }
 
-  // cache of recently visible notes to prevent flicker
-  const visibleStability = new Map(); 
-  // Map<noteId, timestampLastQualifiedMs>
-
-
-  // ===== Notes persistence =====
+  // ===== Notes persistence (local only) =====
   function loadNotes() {
     try {
       const raw = localStorage.getItem('project7_notes');
@@ -140,13 +199,14 @@
     }
   }
 
-  // ===== Renderers =====
+  // ===== Render all views =====
   function renderAll() {
     renderNotesList();
     renderCameraOverlay();
-    renderMapMarkers(); // if map already initialized
+    renderMapMarkers(); // if map exists
   }
 
+  // ----- Notes list -----
   function renderNotesList() {
     if (!notesList) return;
     notesList.innerHTML = '';
@@ -159,20 +219,21 @@
       return;
     }
 
-    // newest first
     notes
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
       .forEach((n) => {
         const card = document.createElement('div');
         card.className = 'note-card';
-
         const date = new Date(n.createdAt);
 
         card.innerHTML = `
           <div class="note-main-row">
             <div class="note-text">${escapeHTML(n.text)}</div>
-            <button class="delete-btn" data-id="${n.id}">Delete</button>
+            <div class="note-actions">
+              <button class="share-btn" data-id="${n.id}">Share</button>
+              <button class="delete-btn" data-id="${n.id}">Delete</button>
+            </div>
           </div>
           <div class="meta">
             <span>${date.toLocaleString()}</span>
@@ -184,9 +245,13 @@
         notesList.appendChild(card);
       });
 
-    // hook up delete handlers
+    // hook up delete + share handlers
     notesList.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', onDeleteNoteClick);
+    });
+
+    notesList.querySelectorAll('.share-btn').forEach(btn => {
+      btn.addEventListener('click', onShareNoteClick);
     });
   }
 
@@ -194,17 +259,52 @@
     const id = e.currentTarget.getAttribute('data-id');
     if (!id) return;
 
-    // remove from notes array
     notes = notes.filter(n => n.id !== id);
     saveNotes();
 
-    // re-render everything that depends on notes
     renderNotesList();
     renderCameraOverlay();
     renderMapMarkers();
   }
 
-  // === distance helper (rough haversine in meters)
+  function onShareNoteClick(e) {
+    const id = e.currentTarget.getAttribute('data-id');
+    if (!id) return;
+
+    const n = notes.find(x => x.id === id);
+    if (!n) return;
+
+    const payload = {
+      text: n.text,
+      lat: n.lat,
+      lon: n.lon,
+      heading: n.heading,
+      radius: 10,        // meters needed to unlock
+      tolerance: 35,     // heading tolerance
+      createdAt: n.createdAt
+    };
+
+    const json = JSON.stringify(payload);
+    const encoded = btoa(json);
+
+    const url = window.location.origin + window.location.pathname + '#share=' + encoded;
+
+    if (navigator.share) {
+      navigator.share({
+        title: "I left you a note in the real world",
+        text: "Go to this spot and point your phone in the right direction to reveal it.",
+        url
+      }).catch(() => {
+        navigator.clipboard.writeText(url).catch(()=>{});
+        alert('Share link copied:\n' + url);
+      });
+    } else {
+      navigator.clipboard.writeText(url).catch(()=>{});
+      alert('Share link copied:\n' + url);
+    }
+  }
+
+  // ===== Utilities: distance + heading match =====
   function distanceMeters(lat1, lon1, lat2, lon2) {
     const R = 6371000; // meters
     const toRad = deg => deg * Math.PI / 180;
@@ -219,60 +319,81 @@
   }
 
   function isHeadingClose(a, b, toleranceDeg) {
-  if (a == null || b == null) return false;
-  let diff = Math.abs(a - b);
-  if (diff > 180) diff = 360 - diff; // wraparound 350° vs 10°
-  return diff <= toleranceDeg;
+    if (a == null || b == null) return false;
+    let diff = Math.abs(a - b);
+    if (diff > 180) diff = 360 - diff;
+    return diff <= toleranceDeg;
   }
 
-
-  // ===== Camera overlay (contextual nearby notes only) =====
+  // ===== Camera overlay (spatial gating + flicker smoothing) =====
   function renderCameraOverlay() {
     if (!cameraNotesOverlay) return;
     cameraNotesOverlay.innerHTML = '';
-  
+
     if (currentLat == null || currentLon == null) {
       return;
     }
-  
-    const NEAR_RADIUS_M = 10; // distance gate
-    const HEADING_TOLERANCE_DEG = 35; // was 15, bumping to 35 for stability
-    const STICKY_MS = 1000; // how long we "keep showing" after last qualified
-  
+
     const now = Date.now();
-  
-    // 1. figure out which notes qualify right now
-    const qualifyingNotes = [];
+
+    const DEFAULT_RADIUS_M = 10;
+    const DEFAULT_TOLERANCE_DEG = 35;
+    const STICKY_MS = 1000;
+
+    function qualifies(note, radius, tolerance) {
+      if (note.lat == null || note.lon == null) return false;
+
+      const dist = distanceMeters(currentLat, currentLon, note.lat, note.lon);
+      const closeEnough = dist <= radius;
+
+      const lookingSameWay = isHeadingClose(
+        currentHeading,
+        note.heading,
+        tolerance
+      );
+
+      return closeEnough && lookingSameWay;
+    }
+
+    // Local notes that qualify right now
+    const qualifyingLocal = [];
     notes.forEach(n => {
-      if (n.lat == null || n.lon == null) return;
-  
-      // distance check
-      const dist = distanceMeters(currentLat, currentLon, n.lat, n.lon);
-      const closeEnough = dist <= NEAR_RADIUS_M;
-  
-      // heading check
-      const lookingSameWay = isHeadingClose(currentHeading, n.heading, HEADING_TOLERANCE_DEG);
-  
-      if (closeEnough && lookingSameWay) {
-        qualifyingNotes.push(n);
-  
-        // mark this note as "good at this moment"
+      if (qualifies(n, DEFAULT_RADIUS_M, DEFAULT_TOLERANCE_DEG)) {
+        qualifyingLocal.push(n);
         visibleStability.set(n.id, now);
       }
     });
-  
-    // 2. also allow notes that WERE qualifying very recently (sticky effect)
-    const stickyNotes = notes.filter(n => {
+
+    // Local notes within sticky window
+    const stickyLocal = notes.filter(n => {
       const lastOk = visibleStability.get(n.id);
-      if (!lastOk) return false;
-      // keep it if it's still within STICKY_MS
-      return now - lastOk <= STICKY_MS;
+      return lastOk && (now - lastOk <= STICKY_MS);
     });
-  
-    // merge + dedupe by id
+
+    // Shared note qualify right now
+    const qualifyingShared = [];
+    if (sharedNote) {
+      const r = sharedNote._sharedRadius || DEFAULT_RADIUS_M;
+      const t = sharedNote._sharedTolerance || DEFAULT_TOLERANCE_DEG;
+      if (qualifies(sharedNote, r, t)) {
+        qualifyingShared.push(sharedNote);
+        visibleStability.set(sharedNote.id, now);
+      }
+    }
+
+    // Shared note sticky
+    const stickyShared = [];
+    if (sharedNote) {
+      const lastOkShared = visibleStability.get(sharedNote.id);
+      if (lastOkShared && (now - lastOkShared <= STICKY_MS)) {
+        stickyShared.push(sharedNote);
+      }
+    }
+
+    // Merge and dedupe
     const merged = [];
     const seen = new Set();
-    [...qualifyingNotes, ...stickyNotes]
+    [...qualifyingLocal, ...stickyLocal, ...qualifyingShared, ...stickyShared]
       .sort((a,b)=>b.createdAt - a.createdAt)
       .forEach(n => {
         if (!seen.has(n.id)) {
@@ -280,8 +401,8 @@
           merged.push(n);
         }
       });
-  
-    // only show top 2
+
+    // Render up to 2 chips
     merged.slice(0,2).forEach(n => {
       const chip = document.createElement('div');
       chip.className = 'note-chip';
@@ -290,17 +411,15 @@
     });
   }
 
-
-
   // ===== Map (Leaflet) =====
   function initMap() {
-    if (map) return; // already done
+    if (map) return;
 
     const mapEl = document.getElementById('map');
     if (!mapEl) return;
 
-    // pick initial view
-    let startLat = (currentLat != null) ? currentLat : 41.387; // Barcelona fallback
+    // choose initial view
+    let startLat = (currentLat != null) ? currentLat : 41.387; // fallback Barcelona
     let startLon = (currentLon != null) ? currentLon : 2.170;
     let startZoom = (currentLat != null && currentLon != null) ? 16 : 13;
 
@@ -316,22 +435,27 @@
 
     markersLayer = L.layerGroup().addTo(map);
 
-    // track manual movement so we don't keep recentering on user
     map.on('moveend', () => {
       userHasMovedMap = true;
     });
 
     renderMapMarkers();
+
+    // If we came from a shared link, auto-zoom to that shared note
+    if (sharedNote) {
+      map.setView([sharedNote.lat, sharedNote.lon], 18);
+    }
   }
 
   function renderMapMarkers() {
     if (!markersLayer) return;
     markersLayer.clearLayers();
 
+    // 1. Your own saved notes => normal markers
     notes.forEach(n => {
       const date = new Date(n.createdAt).toLocaleString();
-      const marker = L.marker([n.lat, n.lon]);
 
+      const marker = L.marker([n.lat, n.lon]);
       marker.bindPopup(`
         <div class="popup-note">
           <div class="popup-text">${escapeHTML(n.text)}</div>
@@ -342,25 +466,52 @@
           </div>
         </div>
       `);
-
       markersLayer.addLayer(marker);
     });
+
+    // 2. Shared note (if page opened via share link)
+    if (sharedNote) {
+      const sharedLatLng = [sharedNote.lat, sharedNote.lon];
+      const popupDate = new Date(sharedNote.createdAt).toLocaleString();
+
+      const circle = L.circle(sharedLatLng, {
+        radius: sharedNote._sharedRadius || 10,
+        color: 'rgba(0,122,255,0.8)',
+        fillColor: 'rgba(0,122,255,0.2)',
+        fillOpacity: 0.4,
+        weight: 2
+      });
+
+      circle.bindPopup(`
+        <div class="popup-note">
+          <div class="popup-text">${escapeHTML(sharedNote.text)}</div>
+          <div class="popup-meta">
+            <div>${popupDate}</div>
+            <div>↗ ${sharedNote.heading ?? '--'}°</div>
+            <div>${sharedNote.lat.toFixed(5)}, ${sharedNote.lon.toFixed(5)}</div>
+            <div>Stand inside the blue circle and face that direction to reveal it in Camera.</div>
+          </div>
+        </div>
+      `);
+
+      markersLayer.addLayer(circle);
+    }
   }
 
-  // ===== Tabs =====
+  // ===== Nav / view switching =====
   function initTabs() {
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-target');
         switchView(targetId);
-  
-        // update visual active state
+
+        // update pill visual
         tabButtons.forEach((b) => b.classList.remove('active-pill'));
         btn.classList.add('active-pill');
-  
+
         if (targetId === 'mapView') {
           initMap();
-          // resize Leaflet after view becomes visible
+          // ensure Leaflet recalculates its layout after being hidden
           setTimeout(() => {
             if (map) {
               map.invalidateSize();
@@ -371,7 +522,6 @@
       });
     });
   }
-
 
   function switchView(targetId) {
     [cameraView, mapView, notesView].forEach((v) => {
@@ -422,7 +572,6 @@
     notes.push(newNote);
     saveNotes();
 
-    // re-render dependent views
     renderNotesList();
     renderCameraOverlay();
     renderMapMarkers();
@@ -430,7 +579,7 @@
     closeNoteModal();
   }
 
-  // ===== PWA Install handling =====
+  // ===== PWA install prompt handling =====
   function initInstallPrompt() {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -460,16 +609,12 @@
     }
   }
 
-  // ===== Utils =====
+  // ===== Escape HTML util =====
   function escapeHTML(str) {
     return str
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
   }
+
 })();
-
-
-
-
-
