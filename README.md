@@ -68,7 +68,7 @@ It uses simple signals — **GPS + compass heading** — to simulate *anchored m
 
 No frameworks, no backend, no dependencies beyond Leaflet.
 
-##📱 Demo Flow
+###📱 Demo Flow
 
 1. Open P7 on your phone → Tap “+ Note here” while facing an object.
 2. Write something like “Bench with best sunset view.”
