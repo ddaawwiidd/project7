@@ -17,7 +17,7 @@ It’s part AR, part map, part private memory layer — built entirely with web 
 4. Return to the same spot, point the same way → note reappears ✨.
 5. Tap Share → send the link to a friend.
 6. Friend opens it → sees the blue circle on the map and must physically go there to unlock your note.
-7. 
+
 ---
 
 ## 🧩 Core Features
