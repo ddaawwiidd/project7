@@ -11,7 +11,13 @@ It’s part AR, part map, part private memory layer — built entirely with web 
 👉 [https://ddaawwiidd.github.io/Project7](https://ddaawwiidd.github.io/Project7)
 
 *(Runs best on a mobile device with GPS + compass + camera access.)*
-
+1. Open P7 on your phone → Tap “+ Note here” while facing an object.
+2. Write something like “Bench with best sunset view.”
+3. Walk away and look elsewhere → note disappears.
+4. Return to the same spot, point the same way → note reappears ✨.
+5. Tap Share → send the link to a friend.
+6. Friend opens it → sees the blue circle on the map and must physically go there to unlock your note.
+7. 
 ---
 
 ## 🧩 Core Features
@@ -67,13 +73,4 @@ It uses simple signals — **GPS + compass heading** — to simulate *anchored m
 | PWA | Service Worker + Web Manifest |
 
 No frameworks, no backend, no dependencies beyond Leaflet.
-
-###📱 Demo Flow
-
-1. Open P7 on your phone → Tap “+ Note here” while facing an object.
-2. Write something like “Bench with best sunset view.”
-3. Walk away and look elsewhere → note disappears.
-4. Return to the same spot, point the same way → note reappears ✨.
-5. Tap Share → send the link to a friend.
-6. Friend opens it → sees the blue circle on the map and must physically go there to unlock your note.
 
